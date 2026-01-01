@@ -29,11 +29,6 @@ class SessionTracker {
       screenName: 'app_launch',
       eventData: {'startTime': _sessionStartTime!.toIso8601String()},
     );
-
-    // Start timer to track session duration
-    _sessionTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _updateSessionDuration();
-    });
   }
 
   // End current session
@@ -44,7 +39,7 @@ class SessionTracker {
     _sessionTimer = null;
 
     final sessionDuration = DateTime.now().difference(_sessionStartTime!);
-    
+
     await _analyticsService.logActivity(
       testerId: _currentTesterId!,
       activityType: ActivityType.sessionEnd,
@@ -60,13 +55,6 @@ class SessionTracker {
     _isSessionActive = false;
     _currentTesterId = null;
     _sessionStartTime = null;
-  }
-
-  void _updateSessionDuration() {
-    if (_isSessionActive && _currentTesterId != null) {
-      final duration = DateTime.now().difference(_sessionStartTime!);
-      // You can log periodic session updates if needed
-    }
   }
 
   // Track screen views
@@ -96,10 +84,7 @@ class SessionTracker {
       activityType: ActivityType.buttonClick,
       eventName: 'button_click',
       screenName: screenName,
-      eventData: {
-        'buttonId': buttonId,
-        ...?eventData,
-      },
+      eventData: {'buttonId': buttonId, ...?eventData},
     );
   }
 

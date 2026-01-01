@@ -13,7 +13,7 @@ class FirebaseAnalyticsService {
   static const String sessionsCollection = 'sessions';
 
   // Register a new tester
-  Future<void> registerTester({
+  Future<void> initializeTesting({
     required String email,
     required String name,
     required String testerGroup,
@@ -35,18 +35,18 @@ class FirebaseAnalyticsService {
       await _firestore
           .collection(testersCollection)
           .doc(testerId)
-          .set(tester.toJson());
+          .set(tester.toJson(), SetOptions(merge: true));
 
       // Log registration activity
       await logActivity(
         testerId: testerId,
         activityType: ActivityType.appLaunch,
-        eventName: 'tester_registered',
-        screenName: 'registration',
+        eventName: 'tester_initialized',
+        screenName: 'Onboarding Screen',
         eventData: {'testerGroup': testerGroup, 'deviceInfo': deviceInfo},
       );
     } catch (e) {
-      print('Error registering tester: $e');
+      print('Error initializing tester: $e');
       rethrow;
     }
   }
@@ -82,7 +82,7 @@ class FirebaseAnalyticsService {
       await _firestore
           .collection(activitiesCollection)
           .doc(activityId)
-          .set(activity.toJson());
+          .set(activity.toJson(), SetOptions(merge: true));
 
       // Update tester's last active timestamp
       await _firestore.collection(testersCollection).doc(testerId).update({
