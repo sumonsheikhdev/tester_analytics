@@ -20,7 +20,7 @@ class FirebaseAnalyticsService {
     required Map<String, dynamic> deviceInfo,
   }) async {
     try {
-      final testerId = _uuid.v4();
+      final testerId = email;
       final tester = Tester(
         id: testerId,
         email: email,
@@ -36,15 +36,6 @@ class FirebaseAnalyticsService {
           .collection(testersCollection)
           .doc(testerId)
           .set(tester.toJson(), SetOptions(merge: true));
-
-      // Log registration activity
-      await logActivity(
-        testerId: testerId,
-        activityType: ActivityType.appLaunch,
-        eventName: 'tester_initialized',
-        screenName: 'Onboarding Screen',
-        eventData: {'testerGroup': testerGroup, 'deviceInfo': deviceInfo},
-      );
     } catch (e) {
       print('Error initializing tester: $e');
       rethrow;

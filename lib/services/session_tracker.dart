@@ -1,112 +1,54 @@
 import 'dart:async';
-import 'package:tester_analytics/models/activity_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../services/firebase_service.dart';
+
 
 class SessionTracker {
-  final FirebaseAnalyticsService _analyticsService;
-  Timer? _sessionTimer;
-  DateTime? _sessionStartTime;
-  String? _currentTesterId;
-  bool _isSessionActive = false;
+  static DateTime? _start;
+  static String? _email;
 
-  SessionTracker(this._analyticsService);
+  static final _db = FirebaseFirestore.instance;
 
-  // Start a new session
-  Future<void> startSession(String testerId) async {
-    if (_isSessionActive) {
-      await endSession();
-    }
+  /// call on AppLifecycleState.resumed
+  static Future<void> startSession(String email) async {
+    if (_start != null) return;
 
-    _currentTesterId = testerId;
-    _sessionStartTime = DateTime.now();
-    _isSessionActive = true;
+    _email = email;
+    _start = DateTime.now();
 
-    await _analyticsService.logActivity(
-      testerId: testerId,
-      activityType: ActivityType.sessionStart,
-      eventName: 'session_started',
-      screenName: 'app_launch',
-      eventData: {'startTime': _sessionStartTime!.toIso8601String()},
-    );
+    final d = _day(_start!);
+
+    await _db
+        .collection('tester_analytics')
+        .doc(email)
+        .collection('days')
+        .doc(d)
+        .set({
+      'sessions': FieldValue.increment(1),
+    }, SetOptions(merge: true));
   }
 
-  // End current session
-  Future<void> endSession() async {
-    if (!_isSessionActive || _currentTesterId == null) return;
+  /// call on paused / inactive / detached
+  static Future<void> endSession() async {
+    if (_start == null || _email == null) return;
 
-    _sessionTimer?.cancel();
-    _sessionTimer = null;
+    final s = _start!;
+    final e = DateTime.now();
+    final d = _day(s);
 
-    final sessionDuration = DateTime.now().difference(_sessionStartTime!);
+    await _db
+        .collection('tester_analytics')
+        .doc(_email)
+        .collection('days')
+        .doc(d)
+        .set({
+      'total': FieldValue.increment(e.difference(s).inSeconds),
+    }, SetOptions(merge: true));
 
-    await _analyticsService.logActivity(
-      testerId: _currentTesterId!,
-      activityType: ActivityType.sessionEnd,
-      eventName: 'session_ended',
-      screenName: 'app_close',
-      eventData: {
-        'startTime': _sessionStartTime!.toIso8601String(),
-        'endTime': DateTime.now().toIso8601String(),
-      },
-      sessionDuration: sessionDuration,
-    );
-
-    _isSessionActive = false;
-    _currentTesterId = null;
-    _sessionStartTime = null;
+    _start = null;
+    _email = null;
   }
 
-  // Track screen views
-  Future<void> trackScreenView({
-    required String testerId,
-    required String screenName,
-    Map<String, dynamic>? screenData,
-  }) async {
-    await _analyticsService.logActivity(
-      testerId: testerId,
-      activityType: ActivityType.screenView,
-      eventName: 'screen_view',
-      screenName: screenName,
-      eventData: screenData,
-    );
-  }
-
-  // Track button clicks
-  Future<void> trackButtonClick({
-    required String testerId,
-    required String buttonId,
-    required String screenName,
-    Map<String, dynamic>? eventData,
-  }) async {
-    await _analyticsService.logActivity(
-      testerId: testerId,
-      activityType: ActivityType.buttonClick,
-      eventName: 'button_click',
-      screenName: screenName,
-      eventData: {'buttonId': buttonId, ...?eventData},
-    );
-  }
-
-  // Track feature usage
-  Future<void> trackFeatureUsage({
-    required String testerId,
-    required String featureName,
-    required String screenName,
-    Map<String, dynamic>? usageData,
-  }) async {
-    await _analyticsService.logActivity(
-      testerId: testerId,
-      activityType: ActivityType.featureUsage,
-      eventName: 'feature_used',
-      screenName: screenName,
-      featureName: featureName,
-      eventData: usageData,
-    );
-  }
-
-  void dispose() {
-    _sessionTimer?.cancel();
-    endSession();
-  }
+  static String _day(DateTime t) =>
+      '${t.year}-${t.month}-${t.day}';
 }
